@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Creates ASG with Specified Min, Max, and desired capacity in each specified subnet"
+Parameters:
+  KeyName:
+    Description: "EC2 Key Pair Name"
+    Type: String
+  InstanceSecurityGroup:
+    Description: "Security Group ID"
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  VPCZoneIdentifier:
+      Description: "List the Subnet Ids"
+      Type: List<AWS::EC2::Subnet::Id>
+Resources:
+  MyLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: MyLaunchTemplate
+      LaunchTemplateData:        
+        DisableApiTermination: true
+        ImageId: ami-0cff7528ff583bf9a
+        InstanceType: t2.micro
+        KeyName: 
+          Ref: KeyName
+        SecurityGroupIds:
+          Ref: InstanceSecurityGroup
+        UserData:
+          Fn::Base64:
+            !Sub |
+              #!/bin/bash
+              yum update -y
+              yum install httpd -y
+              systemctl enable httpd
+              systemctl start httpd
+              echo "Hello World from $(hostname -f)" > /var/www/html/index.html
+  MyAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: MyAutoScalingGroup
+      Cooldown: 120
+      LaunchTemplate:
+        LaunchTemplateId: 
+          Ref: MyLaunchTemplate
+        Version: !GetAtt MyLaunchTemplate.LatestVersionNumber
+      DesiredCapacity: '2'
+      MinSize: '2'
+      MaxSize: '5'
+      VPCZoneIdentifier:
+        Ref: VPCZoneIdentifier
+Outputs:
+  MyAutoscalingGroup:
+    Description: "Created ASG"
+    Value:
+      Ref: MyAutoScalingGroup
+  MyLaunchTemplate:
+    Description: "Created Launch Template"
+    Value:
+      Ref: MyLaunchTemplate
